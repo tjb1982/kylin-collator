@@ -6,6 +6,7 @@ use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use polkadot_service::RococoChainSpec;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<kylin_node_runtime::GenesisConfig, Extensions>;
@@ -53,7 +54,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		"local_testnet",
 		ChainType::Local,
 		move || {
-			testnet_genesis(
+			kylin_genesis(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				vec![
 					get_from_seed::<AuraId>("Alice"),
@@ -87,6 +88,9 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 	)
 }
 
+
+
+
 pub fn get_shell_chain_spec(id: ParaId) -> ShellChainSpec {
 	ShellChainSpec::from_genesis(
 		"Shell Local Testnet",
@@ -110,7 +114,7 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 		"staging_testnet",
 		ChainType::Live,
 		move || {
-			testnet_genesis(
+			kylin_genesis(
 				hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
 				vec![
 					// $secret//one
@@ -137,7 +141,40 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 	)
 }
 
-fn testnet_genesis(
+pub fn rococo_test_net(id: ParaId) -> ChainSpec {
+	ChainSpec::from_genesis(
+		"Rococo Testnet",
+		"rococo_testnet",
+		ChainType::Live,
+		move || {
+			kylin_genesis(
+				hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+				vec![
+					// $secret//one
+					hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
+						.unchecked_into(),
+					// $secret//two
+					hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
+						.unchecked_into(),
+				],
+				vec![
+					hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+				],
+				id,
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Extensions {
+			relay_chain: "rococo".into(),
+			para_id: id.into(),
+		},
+	)
+}
+
+fn kylin_genesis(
 	root_key: AccountId,
 	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
