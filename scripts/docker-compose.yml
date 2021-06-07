@@ -19,7 +19,7 @@ services:
       - "9942:9942"
       - "9933:9933"
       - "30334:30334"
-    command: bash -c "sleep 30;/kylin-node --unsafe-ws-external --rpc-cors all  --rpc-external --rpc-methods Unsafe -d cumulus_parachain/alice --collator --alice --force-authoring --ws-port 9942 --port 30333 --rpc-port 9933 --parachain-id 2013 -- --wasm-execution Compiled --port 30334 --chain rococo-local.json"
+    command: bash -c "sleep 45;/kylin-node --unsafe-ws-external --rpc-cors all  --rpc-external --rpc-methods Unsafe -d cumulus_parachain/alice --collator --alice --force-authoring --ws-port 9942 --port 30333 --rpc-port 9933 --parachain-id 2013 -- --wasm-execution Compiled --port 30334 --chain rococo-local.json"
     volumes:
       - ./kylin_db/cumulus_parachain:/cumulus_parachain/
     depends_on:
@@ -32,7 +32,7 @@ services:
       - "9935:9935"
       - "9955:9955"
       - "30336:30336"
-    command: bash -c "sleep 30;/polkadot --unsafe-ws-external --rpc-cors all --wasm-execution Compiled --rpc-external --rpc-methods Unsafe -d cumulus_relay/bob --validator --bob --ws-port 9955 --port 30336 --rpc-port 9935 --name bob --chain rococo-local.json"
+    command: bash -c "sleep 45;/polkadot --unsafe-ws-external --rpc-cors all --wasm-execution Compiled --rpc-external --rpc-methods Unsafe -d cumulus_relay/bob --validator --bob --ws-port 9955 --port 30336 --rpc-port 9935 --name bob --chain rococo-local.json"
     volumes:
       - ./kylin_db/cumulus_relay:/cumulus_relay/
     depends_on:
