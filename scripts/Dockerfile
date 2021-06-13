@@ -20,7 +20,7 @@ RUN cp target/${PROFILE}/kylin-node /kylin-node
 FROM ubuntu
 ARG PROFILE="release"
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install curl ca-certificates npm nodejs vim -y
+RUN apt-get update && apt-get install curl ca-certificates npm nodejs -y
 RUN npm install -g serve
 COPY --from=builder /kylin-node /
 COPY --from=builder /polkadot /
