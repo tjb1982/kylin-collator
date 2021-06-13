@@ -1,12 +1,12 @@
 # build kylin-node
-FROM kylinnetwork/polkadot:polkadot-v0.9.3 as builder
+FROM kylinnetwork/polkadot:polkadot-v0.9.4 as builder
 
 LABEL maintainer="kylin-dev"
 ARG RUST_VERSION=1.51.0
 ARG PROFILE=release
 ARG KYLIN_GIT_REPO="https://github.com/Kylin-Network/kylin-node.git"
 ARG DOT_GIT_REPO="https://github.com/paritytech/polkadot.git"
-ARG GIT_BRANCH="polkadot-v0.9.3"
+ARG GIT_BRANCH="polkadot-v0.9.4"
 WORKDIR /builds/
 #Build Kylin-node
 RUN git clone --recursive ${KYLIN_GIT_REPO}
@@ -20,7 +20,7 @@ RUN cp target/${PROFILE}/kylin-node /kylin-node
 FROM ubuntu
 ARG PROFILE="release"
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install curl ca-certificates npm nodejs -y
+RUN apt-get update && apt-get install curl ca-certificates npm nodejs vim -y
 RUN npm install -g serve
 COPY --from=builder /kylin-node /
 COPY --from=builder /polkadot /

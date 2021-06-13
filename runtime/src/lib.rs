@@ -74,6 +74,7 @@ use sp_core::{OpaqueMetadata};
 use sp_runtime::traits::{
     IdentifyAccount, Verify,
 };
+
 use sp_runtime::{
     MultiSignature,
 };
@@ -332,7 +333,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
 }
-
 
 impl parachain_info::Config for Runtime {}
 
