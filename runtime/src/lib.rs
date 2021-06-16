@@ -459,8 +459,6 @@ impl pallet_xcm::Config for Runtime {
 }
 
 
-
-
 impl cumulus_pallet_xcm::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -483,6 +481,8 @@ impl kylin_oracle::Config for Runtime {
     type Event = Event;
     type AuthorityId = kylin_oracle::crypto::TestAuthId;
     type Call = Call;
+    type Origin = Origin;
+    type XcmSender = XcmRouter;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime where
@@ -526,55 +526,6 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
         Some((call, (address, signature, extra)))
     }
 }
-
-
-
-// impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime where
-//     Call: From<LocalCall>,
-// {
-//     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-//         call: Call,
-//         public: <Signature as Verify>::Signer,
-//         account: AccountId,
-//         nonce: <Runtime as frame_system::Config>::Index,
-//     ) ->Option<(Call, <UncheckedExtrinsic as ExtrinsicT>::SignaturePayload)> {
-//         use sp_runtime::traits::StaticLookup;
-//         // take the biggest period possible.
-//         let period = BlockHashCount::get()
-//             .checked_next_power_of_two()
-//             .map(|c| c / 2)
-//             .unwrap_or(2) as u64;
-//
-//         let current_block = System::block_number()
-//             // The `System::block_number` is initialized with `n+1`,
-//             // so the actual block number is `n`.
-//             .saturating_sub(1);
-//         let tip = 0;
-//         let extra: SignedExtra = (
-//             frame_system::CheckSpecVersion::<Runtime>::new(),
-//             frame_system::CheckTxVersion::<Runtime>::new(),
-//             frame_system::CheckGenesis::<Runtime>::new(),
-//             frame_system::CheckMortality::<Runtime>::from(generic::Era::mortal(period, current_block.into())),
-//             frame_system::CheckNonce::<Runtime>::from(nonce),
-//             frame_system::CheckWeight::<Runtime>::new(),
-//             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-//         );
-//         let raw_payload = SignedPayload::new(call, extra).map_err(|e| {
-//             log::warn!("Unable to create signed payload: {:?}", e);
-//         }).ok()?;
-//
-//         let signature = raw_payload.using_encoded(|payload| {
-//             C::sign(payload, public)
-//         })?;
-//         let (call, extra, _) = raw_payload.deconstruct();
-//         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);
-//         Some((call, (address, signature, extra)))
-//     }
-// }
-
-
-
-
 
 parameter_types! {
 	pub const AssetDeposit: Balance = 1 * ROC;

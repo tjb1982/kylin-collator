@@ -3733,6 +3733,8 @@ version = "3.0.0"
 name = "kylin-oracle"
 version = "3.0.0"
 dependencies = [
+ "cumulus-pallet-xcm",
+ "cumulus-primitives-core",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -3742,6 +3744,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "xcm",
 ]
 
 [[package]]
