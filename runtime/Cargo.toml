@@ -20,6 +20,7 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
 # Local Dependencies
 kylin-oracle = { package = 'kylin-oracle', path = '../pallets/kylin-oracle', default-features = false }
+cumulus-ping = { git = 'https://github.com/paritytech/cumulus', branch = 'polkadot-v0.9.4', default-features = false }
 
 # Substrate Dependencies
 ## Substrate Primitive Dependencies
@@ -116,6 +117,7 @@ std = [
 	'xcm-builder/std',
 	'xcm-executor/std',
 	'cumulus-pallet-xcm/std',
+	'cumulus-ping/std',
 	'cumulus-pallet-xcmp-queue/std',
 	'cumulus-primitives-utility/std',
 	'kylin-oracle/std',
@@ -124,6 +126,3 @@ std = [
 # A feature that should be enabled when the runtime should be build for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [
-	"sp-api/disable-logging",
-]
