@@ -107,7 +107,7 @@ pub fn new_partial<RuntimeApi, Executor, BIQ>(
 		config.transaction_pool.clone(),
 		config.role.is_authority().into(),
 		config.prometheus_registry(),
-		task_manager.spawn_handle(),
+		task_manager.spawn_essential_handle(),
 		client.clone(),
 	);
 
