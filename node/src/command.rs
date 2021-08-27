@@ -76,7 +76,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&kylin_node_runtime::VERSION
+		&kylin_collator_runtime::VERSION
 	}
 }
 
@@ -135,7 +135,7 @@ macro_rules! construct_async_run {
 		let runner = $cli.create_runner($cmd)?;
 		runner.async_run(|$config| {
 			let $components = new_partial::<
-				kylin_node_runtime::RuntimeApi,
+				kylin_collator_runtime::RuntimeApi,
 				ParachainRuntimeExecutor,
 				_
 			>(

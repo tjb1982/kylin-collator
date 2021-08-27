@@ -30,8 +30,8 @@ type Hash = sp_core::H256;
 // Native executor instance.
 native_executor_instance!(
 	pub ParachainRuntimeExecutor,
-	kylin_node_runtime::api::dispatch,
-	kylin_node_runtime::native_version,
+	kylin_collator_runtime::api::dispatch,
+	kylin_collator_runtime::native_version,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -309,14 +309,14 @@ async fn start_node_impl<RuntimeApi, Executor, RB, BIQ, BIC>(
 }
 
 pub fn parachain_build_import_queue(
-	client: Arc<TFullClient<Block, kylin_node_runtime::RuntimeApi, ParachainRuntimeExecutor>>,
+	client: Arc<TFullClient<Block, kylin_collator_runtime::RuntimeApi, ParachainRuntimeExecutor>>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<
 	sp_consensus::DefaultImportQueue<
 		Block,
-		TFullClient<Block, kylin_node_runtime::RuntimeApi, ParachainRuntimeExecutor>,
+		TFullClient<Block, kylin_collator_runtime::RuntimeApi, ParachainRuntimeExecutor>,
 	>,
 	sc_service::Error,
 > {
@@ -358,9 +358,9 @@ pub async fn start_node(
 	polkadot_config: Configuration,
 	id: ParaId,
 ) -> sc_service::error::Result<
-	(TaskManager, Arc<TFullClient<Block, kylin_node_runtime::RuntimeApi, ParachainRuntimeExecutor>>)
+	(TaskManager, Arc<TFullClient<Block, kylin_collator_runtime::RuntimeApi, ParachainRuntimeExecutor>>)
 > {
-	start_node_impl::<kylin_node_runtime::RuntimeApi, ParachainRuntimeExecutor, _, _, _>(
+	start_node_impl::<kylin_collator_runtime::RuntimeApi, ParachainRuntimeExecutor, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		id,
