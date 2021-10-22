@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-
-// Make the WASM binary available.
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -25,24 +23,22 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use sp_api::impl_runtime_apis;
+use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, AccountIdLookup,Extrinsic as ExtrinsicT},
-
+    traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Extrinsic as ExtrinsicT},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
-use sp_std::{marker::PhantomData, prelude::*};
-
+use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    ensure,
-    construct_runtime, parameter_types, log, match_type,
-    traits::{Contains,Randomness, IsInVec, Everything},
+    construct_runtime, match_type, parameter_types,
+    traits::{Everything, IsInVec, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -51,99 +47,87 @@ pub use frame_support::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 pub use pallet_timestamp::Call as TimestampCall;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use crate::sp_api_hidden_includes_IMPL_RUNTIME_APIS::sp_api::Encode;
 
 // XCM imports
+use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-    AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
-    SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-    SovereignSignedViaLocation, EnsureXcmOrigin,  ParentAsSuperuser,
-     TakeWeightCredit, FixedWeightBounds, IsConcrete, NativeAsset,
-    UsingComponents,
+    AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, CurrencyAdapter,
+    EnsureXcmOrigin, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset,
+    ParentAsSuperuser, ParentIsDefault, RelayChainAsNative, SiblingParachainAsNative,
+    SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+    SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
 };
-use xcm_executor::{Config,traits::ShouldExecute, XcmExecutor};
-use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
+use xcm_executor::{Config, XcmExecutor};
 
+use sp_runtime::traits::{Verify};
 
-use sp_core::{OpaqueMetadata};
-use sp_runtime::traits::{
-    IdentifyAccount, Verify,
-};
-
-use sp_runtime::{
-    MultiSignature,
-};
+use sp_runtime::MultiSignature;
 
 // A few exports that help ease life for downstream crates.
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
-pub use sp_runtime::{ Perquintill};
+pub use sp_runtime::Perquintill;
 
 /// Import the template pallet.
 pub use kylin_oracle;
 
-/// An index to a block.
-pub type BlockNumber = u32;
-
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
 
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+// /// Some way of identifying an account on the chain. We intentionally make it equivalent
+// /// to the public key of our transaction signing scheme.
+// pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-/// never know...
-pub type AccountIndex = u32;
+// /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
+// /// never know...
+// pub type AccountIndex = u32;
 
-/// Balance of an account.
-pub type Balance = u128;
+// /// Balance of an account.
+// pub type Balance = u128;
 
-/// Index of a transaction in the chain.
-pub type Index = u32;
+// /// Index of a transaction in the chain.
+// pub type Index = u32;
 
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+// /// A hash of some data used by the chain.
+// pub type Hash = sp_core::H256;
 
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
-
+// /// Digest item type.
+// pub type DigestItem = generic::DigestItem<Hash>;
 
 pub type SessionHandlers = ();
 
 impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub aura: Aura,
-	}
+    pub struct SessionKeys {
+        pub aura: Aura,
+    }
 }
 
+/// This runtime version.
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kylin-test-parachain"),
     impl_name: create_runtime_str!("kylin-test-parachain"),
     authoring_version: 1,
-    spec_version: 1,
-    impl_version: 1,
+    spec_version: 14,
+    impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
 };
 
-/// This determines the average expected block time that we are targetting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
-// Time is measured by number of blocks.
+pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
+
+// These time units are defined in number of blocks.
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
@@ -176,83 +160,82 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 0.5 seconds of compute with a 6 second average block time.
+/// We allow for .5 seconds of compute with a 12 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
 
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
-	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
-		.base_block(BlockExecutionWeight::get())
-		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = ExtrinsicBaseWeight::get();
-		})
-		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		})
-		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
-			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
-			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
-			);
-		})
-		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
-		.build_or_panic();
-	pub const SS58Prefix: u8 = 0;
+    pub const Version: RuntimeVersion = VERSION;
+    pub RuntimeBlockLength: BlockLength =
+        BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+    pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+        .base_block(BlockExecutionWeight::get())
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = ExtrinsicBaseWeight::get();
+        })
+        .for_class(DispatchClass::Normal, |weights| {
+            weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+        })
+        .for_class(DispatchClass::Operational, |weights| {
+            weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+            // Operational transactions have some extra reserved space, so that they
+            // are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+            weights.reserved = Some(
+                MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+            );
+        })
+        .avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+        .build_or_panic();
+    pub const SS58Prefix: u8 = 42;
 }
 
 /// A majority of the Unit body from Rococo over XCM is our required administration origin.
 pub type AdminOrigin = EnsureXcm<IsMajorityOfBody<RocLocation, UnitBody>>;
 
 impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
+    type AuthorityId = AuraId;
 	type DisabledValidators = ();
 }
 
-// Configure FRAME pallets to include in runtime.
 impl frame_system::Config for Runtime {
-	/// The identifier used to distinguish between accounts.
-	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
-	type Call = Call;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
-	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
-	/// The type for hashing blocks and tries.
-	type Hash = Hash;
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
-	/// The header type.
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// The ubiquitous event type.
-	type Event = Event;
-	/// The ubiquitous origin type.
-	type Origin = Origin;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-	type BlockHashCount = BlockHashCount;
-	/// Runtime version.
-	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = RuntimeBlockWeights;
-	type BlockLength = RuntimeBlockLength;
-	type SS58Prefix = SS58Prefix;
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+    /// The identifier used to distinguish between accounts.
+    type AccountId = AccountId;
+    /// The aggregated dispatch type that is available for extrinsics.
+    type Call = Call;
+    /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
+    type Lookup = AccountIdLookup<AccountId, ()>;
+    /// The index type for storing how many extrinsics an account has signed.
+    type Index = Index;
+    /// The index type for blocks.
+    type BlockNumber = BlockNumber;
+    /// The type for hashing blocks and tries.
+    type Hash = Hash;
+    /// The hashing algorithm used.
+    type Hashing = BlakeTwo256;
+    /// The header type.
+    type Header = generic::Header<BlockNumber, BlakeTwo256>;
+    /// The ubiquitous event type.
+    type Event = Event;
+    /// The ubiquitous origin type.
+    type Origin = Origin;
+    /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+    type BlockHashCount = BlockHashCount;
+    /// Runtime version.
+    type Version = Version;
+    /// Converts a module to an index of this module in the runtime.
+    type PalletInfo = PalletInfo;
+    type AccountData = pallet_balances::AccountData<Balance>;
+    type OnNewAccount = ();
+    type OnKilledAccount = ();
+    type DbWeight = ();
+    type BaseCallFilter = frame_support::traits::Everything;
+    type SystemWeightInfo = ();
+    type BlockWeights = RuntimeBlockWeights;
+    type BlockLength = RuntimeBlockLength;
+    type SS58Prefix = SS58Prefix;
+    type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 }
 
 parameter_types! {
@@ -268,12 +251,12 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1 * MILLIROC;
-	pub const TransferFee: u128 = 1 * MILLIROC;
-	pub const CreationFee: u128 = 1 * MILLIROC;
-	pub const TransactionByteFee: u128 = 1 * MICROROC;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
+    pub const ExistentialDeposit: u128 = 1 * MILLIROC;
+    pub const TransferFee: u128 = 1 * MILLIROC;
+    pub const CreationFee: u128 = 1 * MILLIROC;
+    pub const TransactionByteFee: u128 = 1 * MICROROC;
+    pub const MaxLocks: u32 = 50;
+    pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -290,6 +273,8 @@ impl pallet_balances::Config for Runtime {
     type ReserveIdentifier = [u8; 8];
 }
 
+impl pallet_randomness_collective_flip::Config for Runtime {}
+
 impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
     type TransactionByteFee = TransactionByteFee;
@@ -298,13 +283,13 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 impl pallet_sudo::Config for Runtime {
-    type Event = Event;
     type Call = Call;
+    type Event = Event;
 }
 
 parameter_types! {
-	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
-	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
+    pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
+    pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -323,10 +308,10 @@ impl parachain_info::Config for Runtime {}
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
-	pub const RocLocation: MultiLocation = MultiLocation::parent();
-	pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
-	pub RelayChainOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+    pub const RocLocation: MultiLocation = MultiLocation::parent();
+    pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
+    pub RelayChainOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
+    pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -359,104 +344,94 @@ pub type LocalAssetTransactor = CurrencyAdapter<
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
 /// biases the kind of local `Origin` it will become.
 pub type XcmOriginToTransactDispatchOrigin = (
-	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
-	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
-	// foreign chains who want to have a local sovereign account on this chain which they control.
-	SovereignSignedViaLocation<LocationToAccountId, Origin>,
-	// Native converter for Relay-chain (Parent) location; will converts to a `Relay` origin when
-	// recognised.
-	RelayChainAsNative<RelayChainOrigin, Origin>,
-	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
-	// recognised.
-	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, Origin>,
-	// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
-	// transaction from the Root origin.
-	ParentAsSuperuser<Origin>,
-	// Native signed account converter; this just converts an `AccountId32` origin into a normal
-	// `Origin::Signed` origin of the same 32-byte value.
-	SignedAccountId32AsNative<RococoNetwork, Origin>,
-	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
-	XcmPassthrough<Origin>,
+    // Sovereign account converter; this attempts to derive an `AccountId` from the origin location
+    // using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
+    // foreign chains who want to have a local sovereign account on this chain which they control.
+    SovereignSignedViaLocation<LocationToAccountId, Origin>,
+    // Native converter for Relay-chain (Parent) location; will converts to a `Relay` origin when
+    // recognised.
+    RelayChainAsNative<RelayChainOrigin, Origin>,
+    // Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
+    // recognised.
+    SiblingParachainAsNative<cumulus_pallet_xcm::Origin, Origin>,
+    // Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
+    // transaction from the Root origin.
+    ParentAsSuperuser<Origin>,
+    // Native signed account converter; this just converts an `AccountId32` origin into a normal
+    // `Origin::Signed` origin of the same 32-byte value.
+    SignedAccountId32AsNative<RococoNetwork, Origin>,
+    // Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+    XcmPassthrough<Origin>,
 );
 
 parameter_types! {
-	// One XCM operation is 1_000_000 weight - almost certainly a conservative estimate.
-	pub UnitWeightCost: Weight = 1_000_000;
-	// One ROC buys 1 second of weight.
-	pub const WeightPrice: (MultiLocation, u128) = (MultiLocation::parent(), ROC);
-	pub const MaxInstructions: u32 = 100;
+    // One XCM operation is 1_000_000 weight - almost certainly a conservative estimate.
+    pub UnitWeightCost: Weight = 1_000_000;
+    // One ROC buys 1 second of weight.
+    pub const WeightPrice: (MultiLocation, u128) = (MultiLocation::parent(), ROC);
+}
 
+match_type! {
+    pub type ParentOrParentsUnitPlurality: impl Contains<MultiLocation> = {
+        MultiLocation { parents: 1, interior: Here } |
+        MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Unit, .. }) }
+    };
 }
 
 pub type Barrier = (
     TakeWeightCredit,
-    AllowAnyPaidExecutionFrom<Everything>,
-    // AllowUnpaidExecutionFrom<IsInVec<AllowUnpaidFrom>>,	// <- Parent gets free execution
+    AllowTopLevelPaidExecutionFrom<Everything>,
+    AllowUnpaidExecutionFrom<ParentOrParentsUnitPlurality>,
+    // ^^^ Parent & its unit plurality gets free execution
 );
-
-
-pub struct AllowAnyPaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<MultiLocation>> ShouldExecute for AllowAnyPaidExecutionFrom<T> {
-	fn should_execute<Call>(
-		origin: &Option<MultiLocation>,
-		_top_level: bool,
-		_message: &mut Xcm<Call>,
-		_shallow_weight: Weight,
-		_weight_credit: &mut Weight,
-	) -> Result<(), ()> {
-		ensure!(T::contains(&origin.as_ref().unwrap()), ());
-		Ok(())
-	}
-}
 
 pub struct XcmConfig;
 impl Config for XcmConfig {
-	type Call = Call;
-	type XcmSender = XcmRouter;
-	// How to withdraw and deposit an asset.
-	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = NativeAsset;
-	type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation of ROC
-	type LocationInverter = LocationInverter<Ancestry>;
-	type Barrier = Barrier;
-	type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
-	type Trader = UsingComponents<IdentityFee<Balance>, RocLocation, AccountId, Balances, ()>;
-	type ResponseHandler = (); // Don't handle responses for now.
+    type Call = Call;
+    type XcmSender = XcmRouter;
+    // How to withdraw and deposit an asset.
+    type AssetTransactor = LocalAssetTransactor;
+    type OriginConverter = XcmOriginToTransactDispatchOrigin;
+    type IsReserve = NativeAsset;
+    type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation of ROC
+    type LocationInverter = LocationInverter<Ancestry>;
+    type Barrier = Barrier;
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+    type Trader = UsingComponents<IdentityFee<Balance>, RocLocation, AccountId, Balances, ()>;
+    type ResponseHandler = (); // Don't handle responses for now.
+    type SubscriptionService = XcmPallet;
 }
 
 parameter_types! {
-	pub const MaxDownwardMessageWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
+    pub const MaxDownwardMessageWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
     pub const GracePeriod: u32 = 5;
     pub const UnsignedInterval: u64 = 128;
     pub const UnsignedPriority: u64 = 1 << 20;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
-pub type LocalOriginToLocation = ();
+pub type LocalOriginToLocation = SignedToAccountId32<Origin, AccountId, RococoNetwork>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = (
-	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, ()>,
-	// ..and XCMP to communicate with the sibling chains.
-	XcmpQueue,
+    // Two routers - use UMP to communicate with the relay chain:
+    cumulus_primitives_utility::ParentAsUmp<ParachainSystem, ()>,
+    // ..and XCMP to communicate with the sibling chains.
+    XcmpQueue,
 );
 
 impl pallet_xcm::Config for Runtime {
-	type Event = Event;
-	type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
-	type XcmRouter = XcmRouter;
-	type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
-	type XcmExecuteFilter = Everything;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type XcmTeleportFilter = Everything;
-	type XcmReserveTransferFilter = frame_support::traits::Nothing;
-	type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
-	type LocationInverter = LocationInverter<Ancestry>;
-	type Origin = Origin;
-	type Call = Call;
+    type Event = Event;
+    type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
+    type XcmRouter = XcmRouter;
+    type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
+    type XcmExecuteFilter = Everything;
+    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmTeleportFilter = Everything;
+    type XcmReserveTransferFilter = ();
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+    type LocationInverter = LocationInverter<Ancestry>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -465,10 +440,10 @@ impl cumulus_pallet_xcm::Config for Runtime {
 }
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
-	type Event = Event;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ChannelInfo = ParachainSystem;
-	type VersionWrapper = ();
+    type Event = Event;
+    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type ChannelInfo = ParachainSystem;
+    type VersionWrapper = ();
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -476,7 +451,6 @@ impl cumulus_pallet_dmp_queue::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type ExecuteOverweightOrigin = frame_system::EnsureRoot<AccountId>;
 }
-impl pallet_randomness_collective_flip::Config for Runtime {}
 
 impl kylin_oracle::Config for Runtime {
     type Event = Event;
@@ -530,13 +504,15 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
     }
 }
 
+
+
 parameter_types! {
-	pub const AssetDeposit: Balance = 1 * ROC;
-	pub const ApprovalDeposit: Balance = 100 * MILLIROC;
-	pub const StringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * ROC;
-	pub const MetadataDepositPerByte: Balance = 10 * MILLIROC;
-	pub const UnitBody: BodyId = BodyId::Unit;
+    pub const AssetDeposit: Balance = 1 * ROC;
+    pub const ApprovalDeposit: Balance = 100 * MILLIROC;
+    pub const AssetsStringLimit: u32 = 50;
+    pub const MetadataDepositBase: Balance = 1 * ROC;
+    pub const MetadataDepositPerByte: Balance = 10 * MILLIROC;
+    pub const UnitBody: BodyId = BodyId::Unit;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -545,48 +521,75 @@ impl frame_system::offchain::SigningTypes for Runtime {
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-    where
-        Call: From<C>,
+where
+    Call: From<C>,
 {
     type OverarchingCall = Call;
     type Extrinsic = UncheckedExtrinsic;
 }
 
+// impl pallet_assets::Config for Runtime {
+// 	type Event = Event;
+// 	type Balance = u64;
+// 	type AssetId = u32;
+// 	type Currency = Balances;
+// 	type ForceOrigin = AdminOrigin;
+// 	type AssetDeposit = AssetDeposit;
+// 	type MetadataDepositBase = MetadataDepositBase;
+// 	type MetadataDepositPerByte = MetadataDepositPerByte;
+// 	type ApprovalDeposit = ApprovalDeposit;
+// 	type StringLimit = AssetsStringLimit;
+// 	type Freezer = ();
+// 	type Extra = ();
+// 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+// }
 
-// Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+construct_runtime! {
+    pub enum Runtime where
+        Block = Block,
+        NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 20,
+        ParachainSystem: cumulus_pallet_parachain_system::{
+            Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
+        } = 20,
         ParachainInfo: parachain_info::{Pallet, Storage, Config} = 21,
 
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
+        // Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
 
-		Aura: pallet_aura::{Pallet, Config<T>},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
+        Aura: pallet_aura::{Pallet, Config<T>},
+        AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
 
-		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin} = 51,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 52,
-		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 53,
+        // XCM helpers.
+        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
+        //PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin} = 51,
+        CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 52,
+        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 53,
 
         // Kylin Pallets
         KylinOraclePallet: kylin_oracle::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 54,
-	}
-);
+        XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin} = 99,
+    }
+}
 
+/// Some way of identifying an account on the chain. We intentionally make it equivalent
+/// to the public key of our transaction signing scheme.
+pub type AccountId = <<Signature as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId;
+/// Balance of an account.
+pub type Balance = u128;
+/// Index of a transaction in the chain.
+pub type Index = u32;
+/// A hash of some data used by the chain.
+pub type Hash = sp_core::H256;
+/// An index to a block.
+pub type BlockNumber = u32;
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
@@ -600,7 +603,7 @@ pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
     frame_system::CheckSpecVersion<Runtime>,
-    frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
@@ -621,112 +624,90 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
-	impl sp_api::Core<Block> for Runtime {
-		fn version() -> RuntimeVersion {
-			VERSION
-		}
+    impl sp_api::Core<Block> for Runtime {
+        fn version() -> RuntimeVersion {
+            VERSION
+        }
 
-		fn execute_block(block: Block) {
-			Executive::execute_block(block);
-		}
+        fn execute_block(block: Block) {
+            Executive::execute_block(block);
+        }
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
-			Executive::initialize_block(header)
-		}
-	}
+        fn initialize_block(header: &<Block as BlockT>::Header) {
+            Executive::initialize_block(header)
+        }
+    }
 
-	impl sp_api::Metadata<Block> for Runtime {
-		fn metadata() -> OpaqueMetadata {
-			Runtime::metadata().into()
-		}
-	}
+    impl sp_api::Metadata<Block> for Runtime {
+        fn metadata() -> OpaqueMetadata {
+            Runtime::metadata().into()
+        }
+    }
 
-	impl sp_block_builder::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(
-			extrinsic: <Block as BlockT>::Extrinsic,
-		) -> ApplyExtrinsicResult {
-			Executive::apply_extrinsic(extrinsic)
-		}
+    impl sp_block_builder::BlockBuilder<Block> for Runtime {
+        fn apply_extrinsic(
+            extrinsic: <Block as BlockT>::Extrinsic,
+        ) -> ApplyExtrinsicResult {
+            Executive::apply_extrinsic(extrinsic)
+        }
 
-		fn finalize_block() -> <Block as BlockT>::Header {
-			Executive::finalize_block()
-		}
+        fn finalize_block() -> <Block as BlockT>::Header {
+            Executive::finalize_block()
+        }
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-			data.create_extrinsics()
-		}
+        fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+            data.create_extrinsics()
+        }
 
-		fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
-		}
-	}
+        fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+            data.check_extrinsics(&block)
+        }
+    }
 
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
+    impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+            block_hash: <Block as BlockT>::Hash,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx, block_hash)
+        }
+    }
 
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			Executive::offchain_worker(header)
-		}
-	}
+    impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
+        fn offchain_worker(header: &<Block as BlockT>::Header) {
+            Executive::offchain_worker(header)
+        }
+    }
 
-	impl sp_session::SessionKeys<Block> for Runtime {
-		fn decode_session_keys(
-			encoded: Vec<u8>,
-		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-			SessionKeys::decode_into_raw_public_keys(&encoded)
-		}
+    impl sp_session::SessionKeys<Block> for Runtime {
+        fn decode_session_keys(
+            encoded: Vec<u8>,
+        ) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
+            SessionKeys::decode_into_raw_public_keys(&encoded)
+        }
 
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
-		}
-	}
+        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+            SessionKeys::generate(seed)
+        }
+    }
 
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
-		}
+    impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+        fn slot_duration() -> sp_consensus_aura::SlotDuration {
+            sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+        }
 
-		fn authorities() -> Vec<AuraId> {
-			Aura::authorities()
-		}
-	}
+        fn authorities() -> Vec<AuraId> {
+            Aura::authorities()
+        }
+    }
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
-			System::account_nonce(account)
-		}
-	}
-
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
-		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
-		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
-		}
-		fn query_fee_details(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
-		) -> pallet_transaction_payment::FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
-		}
-	}
-
-	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
-		fn collect_collation_info() -> cumulus_primitives_core::CollationInfo {
-			ParachainSystem::collect_collation_info()
-		}
-	}
+    impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
+        fn collect_collation_info() -> cumulus_primitives_core::CollationInfo {
+            ParachainSystem::collect_collation_info()
+        }
+    }
 }
-
 
 struct CheckInherents;
 
@@ -744,16 +725,15 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
                 relay_chain_slot,
                 sp_std::time::Duration::from_secs(6),
             )
-                .create_inherent_data()
-                .expect("Could not create the timestamp inherent data");
+            .create_inherent_data()
+            .expect("Could not create the timestamp inherent data");
 
         inherent_data.check_extrinsics(&block)
     }
 }
 
-
-cumulus_pallet_parachain_system::register_validate_block!(
-	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-	CheckInherents = CheckInherents,
-);
+cumulus_pallet_parachain_system::register_validate_block! {
+    Runtime = Runtime,
+    BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+    CheckInherents = CheckInherents,
+}
