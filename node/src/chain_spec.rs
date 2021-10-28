@@ -183,7 +183,7 @@ pub fn pichiu_local_network(para_id: ParaId) -> PichiuChainSpec {
 	PichiuChainSpec::from_genesis(
 		"Pichiu Local Testnet",
 		"pichiu_local_testnet",
-		ChainType::Development,
+		ChainType::Local,
 		move || {
 			pichiu_genesis(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -392,6 +392,7 @@ fn development_genesis(
 				.map(|k| (k, 10 << 60))
 				.collect(),
 		},
+		vesting: Default::default(),
 		sudo: development_runtime::SudoConfig { key: root_key },
 		parachain_info: development_runtime::ParachainInfoConfig { parachain_id: id },
 		aura: development_runtime::AuraConfig {

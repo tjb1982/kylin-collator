@@ -24,11 +24,13 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
+use sp_core::u32_trait::{_1, _2, _3, _4};
+
 use sp_runtime::{
 	generic::Era,
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify, Extrinsic as ExtrinsicT},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify, Extrinsic as ExtrinsicT, ConvertInto},
+	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
 
@@ -47,7 +49,7 @@ pub use frame_support::{
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight,
-	},
+	},PalletId,
 	StorageValue,
 };
 use frame_system::{
@@ -56,6 +58,7 @@ use frame_system::{
 };
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
+use pallet_collective::{EnsureMember, EnsureProportionAtLeast, EnsureProportionMoreThan};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use crate::sp_api_hidden_includes_IMPL_RUNTIME_APIS::sp_api::Encode;
 
@@ -469,6 +472,55 @@ impl kylin_oracle::Config for Runtime {
 	type Currency = Balances;
 }
 
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = MIN_VESTING * KYL;
+}
+
+impl pallet_vesting::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Self>;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
+
+// type CouncilCollective = pallet_collective::Instance1;
+// Parameterize crowdloan reward pallet configuration
+parameter_types! {
+	pub const CrowdloanRewardPalletId: PalletId = PalletId(*b"cc/rewrd");
+}
+
+// Implement crowdloan reward pallet's configuration trait for the runtime
+impl pallet_crowdloan_reward::Config for Runtime {
+	type Event = Event;
+	type PalletId = CrowdloanRewardPalletId;
+	type AdminOrigin = AdminOrigin;
+	type WeightInfo = pallet_crowdloan_reward::weights::SubstrateWeight<Self>;
+}
+
+// Parameterize crowdloan claim pallet
+parameter_types! {
+	pub const CrowdloanClaimPalletId: PalletId = PalletId(*b"cc/claim");
+	pub const ClaimTransactionPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ClaimTransactionLongevity: u32 = 64;
+	pub const MaxProofLength: u32 = 30;
+}
+
+// Implement crowdloan claim pallet configuration trait for the mock runtime
+impl pallet_crowdloan_claim::Config for Runtime {
+	type Event = Event;
+	type PalletId = CrowdloanClaimPalletId;
+	type WeightInfo = pallet_crowdloan_claim::weights::SubstrateWeight<Self>;
+	type AdminOrigin = AdminOrigin;
+	type RelayChainAccountId = AccountId;
+	type MaxProofLength = MaxProofLength;
+	type ClaimTransactionPriority = ClaimTransactionPriority;
+	type ClaimTransactionLongevity = ClaimTransactionLongevity;
+	type RewardMechanism = CrowdloanReward;
+}
+
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime where
 	Call: From<LocalCall>,
 {
@@ -584,6 +636,8 @@ construct_runtime! {
 
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 32,
+		// Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 33,
 
 		Aura: pallet_aura::{Pallet, Config<T>},
 		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
@@ -596,6 +650,9 @@ construct_runtime! {
 
 		// Kylin Pallets
 		KylinOraclePallet: kylin_oracle::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 54,
+		CrowdloanClaim: pallet_crowdloan_claim::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 55,
+		CrowdloanReward: pallet_crowdloan_reward::{Pallet, Call, Storage, Event<T>} = 56,
+
 	}
 }
 
