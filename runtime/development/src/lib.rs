@@ -24,14 +24,14 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
-use sp_core::u32_trait::{_1, _2, _3, _4};
+// use sp_core::u32_trait::{_1, _2, _3, _4};
 
 use sp_runtime::{
 	generic::Era,
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify, Extrinsic as ExtrinsicT, ConvertInto},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult,Perbill,
 };
 
 use sp_std::{marker::PhantomData, prelude::*};
@@ -54,11 +54,11 @@ pub use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureOneOf, EnsureRoot,
+	EnsureOneOf, EnsureRoot,EnsureSigned
 };
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_collective::{EnsureMember, EnsureProportionAtLeast, EnsureProportionMoreThan};
+// use pallet_collective::{EnsureMember, EnsureProportionAtLeast, EnsureProportionMoreThan};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use crate::sp_api_hidden_includes_IMPL_RUNTIME_APIS::sp_api::Encode;
 
@@ -486,6 +486,9 @@ impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
+
+
+
 // type CouncilCollective = pallet_collective::Instance1;
 // Parameterize crowdloan reward pallet configuration
 parameter_types! {
@@ -519,6 +522,52 @@ impl pallet_crowdloan_claim::Config for Runtime {
 	type ClaimTransactionPriority = ClaimTransactionPriority;
 	type ClaimTransactionLongevity = ClaimTransactionLongevity;
 	type RewardMechanism = CrowdloanReward;
+}
+
+parameter_types! {
+	pub const MinimumReward: Balance = 0;
+	pub const Initialized: bool = false;
+	pub const InitializationPayment: Perbill = Perbill::from_percent(30);
+	pub const MaxInitContributorsBatchSizes: u32 = 500;
+	pub const RelaySignaturesThreshold: Perbill = Perbill::from_percent(100);
+}
+
+impl pallet_crowdloan_rewards::Config for Runtime {
+	type Event = Event;
+	type Initialized = Initialized;
+	type InitializationPayment = InitializationPayment;
+	type MaxInitContributors = MaxInitContributorsBatchSizes;
+	type MinimumReward = MinimumReward;
+	type RewardCurrency = Balances;
+	type RelayChainAccountId = AccountId;
+	type RewardAddressChangeOrigin = EnsureSigned<Self::AccountId>;
+	type RewardAddressRelayVoteThreshold = RelaySignaturesThreshold;
+	type VestingBlockNumber = BlockNumber;
+	type VestingBlockProvider = cumulus_pallet_parachain_system::RelaychainBlockNumberProvider<Self>;
+	type WeightInfo = pallet_crowdloan_rewards::weights::SubstrateWeight<Runtime>;
+}
+
+
+impl pallet_utility::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = NORMAL_DISPATCH_RATIO * RuntimeBlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type Event = Event;
+	type Origin = Origin;
+	type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime where
@@ -637,6 +686,10 @@ construct_runtime! {
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
 		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 32,
+		Scheduler: pallet_scheduler::{Pallet, Storage, Config, Event<T>, Call} = 33,
+		Utility: pallet_utility::{Pallet, Call, Event} = 34,
+
+
 		// Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 33,
 
 		Aura: pallet_aura::{Pallet, Config<T>},
@@ -652,6 +705,8 @@ construct_runtime! {
 		KylinOraclePallet: kylin_oracle::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 54,
 		CrowdloanClaim: pallet_crowdloan_claim::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 55,
 		CrowdloanReward: pallet_crowdloan_reward::{Pallet, Call, Storage, Event<T>} = 56,
+		CrowdloanRewards: pallet_crowdloan_rewards::{Pallet, Call, Storage, Config<T>, Event<T>} = 57,
+
 
 	}
 }

@@ -50,7 +50,9 @@ pallet-sudo = { git = 'https://github.com/paritytech/substrate', branch = 'maste
 pallet-timestamp = { git = 'https://github.com/paritytech/substrate', branch = 'master', default-features = false }
 pallet-transaction-payment = { git = 'https://github.com/paritytech/substrate', branch = 'master', default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = 'https://github.com/paritytech/substrate', branch = 'master', default-features = false }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-vesting = { git = "https://github.com/paritytech/substrate",  default-features = false , branch = "master" }
+pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 
 # Cumulus Dependencies
@@ -78,6 +80,7 @@ kylin-oracle = { package = 'kylin-oracle', path = '../../pallets/kylin-oracle', 
 runtime-common = { path = "../common", default-features = false }
 pallet-crowdloan-claim = { path = "../../pallets/crowdloan-claim", default-features = false }
 pallet-crowdloan-reward = { path = "../../pallets/crowdloan-reward", default-features = false }
+pallet-crowdloan-rewards = { path = "../../pallets/crowdloan-rewards", default-features = false }
 
 
 [dev-dependencies]
@@ -128,6 +131,7 @@ std = [
 	'pallet-sudo/std',
 	'pallet-vesting/std',
 	'pallet-transaction-payment/std',
+	'pallet-utility/std',
 	'parachain-info/std',
 	'parachains-common/std',
 	'cumulus-pallet-aura-ext/std',
@@ -143,6 +147,7 @@ std = [
 	'kylin-oracle/std',
 	'pallet-crowdloan-claim/std',
 	'pallet-crowdloan-reward/std',
+	'pallet-crowdloan-rewards/std',
 ]
 
 # A feature that should be enabled when the runtime should be build for on-chain

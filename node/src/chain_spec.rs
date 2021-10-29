@@ -1,6 +1,6 @@
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use development_runtime::{AccountId, AuraId, Signature};
+use development_runtime::{AccountId, AuraId,Balance, CrowdloanRewardsConfig, SchedulerConfig, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use std::str::FromStr;
 use sc_service::{ChainType, Properties};
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::{AccountId32, traits::{IdentifyAccount, Verify}};
 use pichiu_runtime::constants::currency::PCHU;
+use runtime_common::constants::KYL;
 
 
 /// Properties for Kylin.
@@ -28,7 +29,6 @@ pub type PichiuChainSpec = sc_service::GenericChainSpec<pichiu_runtime::GenesisC
 
 /// Specialized `ChainSpec` for the shell parachain runtime.
 pub type ShellChainSpec = sc_service::GenericChainSpec<shell_runtime::GenesisConfig, Extensions>;
-
 
 const POLKADOT_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -131,6 +131,7 @@ pub fn development_local_config(id: ParaId, environment: &str) -> DevelopmentCha
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
 				id,
+				3_000_000 * KYL
 			)
 		},
 		Vec::new(),
@@ -161,6 +162,7 @@ pub fn development_environment_config(id: ParaId,environment: &str) -> Developme
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 				],
 				id,
+				3_000_000 * KYL
 			)
 		},
 		Vec::new(),
@@ -375,6 +377,7 @@ fn development_genesis(
 	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
+	crowdloan_fund_pot: Balance,
 ) -> development_runtime::GenesisConfig {
 	let _initial_balance: u128 = 1_000_000_000 * 1000;
 
@@ -394,7 +397,11 @@ fn development_genesis(
 		},
 		vesting: Default::default(),
 		sudo: development_runtime::SudoConfig { key: root_key },
+		crowdloan_rewards: CrowdloanRewardsConfig {
+			funded_amount: crowdloan_fund_pot,
+		},
 		parachain_info: development_runtime::ParachainInfoConfig { parachain_id: id },
+		scheduler: SchedulerConfig {},
 		aura: development_runtime::AuraConfig {
 			authorities: initial_authorities,
 		},

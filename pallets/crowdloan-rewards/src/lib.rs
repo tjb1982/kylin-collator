@@ -60,7 +60,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::pallet;
 pub use pallet::*;
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod benchmarks;
@@ -70,27 +69,32 @@ pub(crate) mod mock;
 mod tests;
 pub mod weights;
 
-#[pallet]
-pub mod pallet {
 
-	use crate::weights::WeightInfo;
-	use frame_support::traits::WithdrawReasons;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{Currency, ExistenceRequirement::AllowDeath},
-		PalletId,
-	};
-	use frame_system::pallet_prelude::*;
-	use sp_core::crypto::AccountId32;
-	use sp_runtime::traits::{
-		AccountIdConversion, AtLeast32BitUnsigned, BlockNumberProvider, Saturating, Verify,
-	};
-	use sp_runtime::{MultiSignature, Perbill};
-	use sp_std::collections::btree_map::BTreeMap;
-	use sp_std::vec;
-	use sp_std::vec::Vec;
+use crate::weights::WeightInfo;
+use frame_support::traits::WithdrawReasons;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Currency, ExistenceRequirement::AllowDeath},
+	PalletId,
+};
+use frame_system::pallet_prelude::*;
+use sp_core::crypto::AccountId32;
+use sp_runtime::traits::{
+	AccountIdConversion, AtLeast32BitUnsigned, BlockNumberProvider, Saturating, Verify,
+};
+use sp_runtime::{MultiSignature, Perbill};
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::vec;
+use sp_std::vec::Vec;
+use scale_info::TypeInfo;
+use sp_std::fmt::Debug;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+
+
+
 	#[pallet::pallet]
-	// The crowdloan rewards pallet
 	pub struct Pallet<T>(PhantomData<T>);
 
 	pub const PALLET_ID: PalletId = PalletId(*b"Crowdloa");
@@ -125,6 +129,7 @@ pub mod pallet {
 			//TODO these AccountId32 bounds feel a little extraneous. I wonder if we can remove them.
 			+ Into<AccountId32>
 			+ From<AccountId32>
+			+ TypeInfo
 			+ Ord;
 
 		// The origin that is allowed to change the reward address with relay signatures
@@ -140,19 +145,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	pub type BalanceOf<T> = <<T as Config>::RewardCurrency as Currency<
-		<T as frame_system::Config>::AccountId,
-	>>::Balance;
 
-	/// Stores info about the rewards owed as well as how much has been vested so far.
-	/// For a primer on this kind of design, see the recipe on compounding interest
-	/// https://substrate.dev/recipes/fixed-point.html#continuously-compounding
-	#[derive(Default, Clone, Encode, Decode, RuntimeDebug, PartialEq)]
-	pub struct RewardInfo<T: Config> {
-		pub total_reward: BalanceOf<T>,
-		pub claimed_reward: BalanceOf<T>,
-		pub contributed_relay_addresses: Vec<T::RelayChainAccountId>,
-	}
 
 	// This hook is in charge of initializing the vesting height at the first block of the parachain
 	#[pallet::hooks]
@@ -388,61 +381,7 @@ pub mod pallet {
 			Ok(Default::default())
 		}
 
-		/// This extrinsic completes the initialization if some checks are fullfiled. These checks are:
-		///  -The reward contribution money matches the crowdloan pot
-		///  -The end vesting block is higher than the init vesting block
-		///  -The initialization has not complete yet
-		#[pallet::weight(T::WeightInfo::complete_initialization())]
-		pub fn complete_initialization(
-			origin: OriginFor<T>,
-			lease_ending_block: T::VestingBlockNumber,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-
-			let initialized = <Initialized<T>>::get();
-
-			// This ensures there was no prior initialization
-			ensure!(
-				initialized == false,
-				Error::<T>::RewardVecAlreadyInitialized
-			);
-
-			// This ensures the end vesting block (when all funds are fully vested)
-			// is bigger than the init vesting block
-			ensure!(
-				lease_ending_block > InitVestingBlock::<T>::get(),
-				Error::<T>::VestingPeriodNonValid
-			);
-
-			let current_initialized_rewards = InitializedRewardAmount::<T>::get();
-
-			let reward_difference = Self::pot().saturating_sub(current_initialized_rewards);
-
-			// Ensure the difference is not bigger than the total number of contributors
-			ensure!(
-				reward_difference < TotalContributors::<T>::get().into(),
-				Error::<T>::RewardsDoNotMatchFund
-			);
-
-			// Burn the difference
-			let imbalance = T::RewardCurrency::withdraw(
-				&PALLET_ID.into_account(),
-				reward_difference,
-				WithdrawReasons::TRANSFER,
-				AllowDeath,
-			)
-			.expect("Shouldnt fail, as the fund should be enough to burn and nothing is locked");
-			drop(imbalance);
-
-			EndVestingBlock::<T>::put(lease_ending_block);
-
-			<Initialized<T>>::put(true);
-
-			Ok(Default::default())
-		}
-
 		/// Initialize the reward distribution storage. It shortcuts whenever an error is found
-
 		/// This does not enforce any checks other than making sure we dont go over funds
 		/// complete_initialization should perform any additional
 		#[pallet::weight(T::WeightInfo::initialize_reward_vec(rewards.len() as u32))]
@@ -475,16 +414,33 @@ pub mod pallet {
 					acc + *reward
 				});
 
+
+			log::info!("********* current_initialized_rewards value is {:?}",current_initialized_rewards);
+			log::info!("********* incoming_rewards value is {:?}",incoming_rewards);
+			log::info!("********* pot value is {:?}", Self::pot());
+
 			// Ensure we dont go over funds
 			ensure!(
 				current_initialized_rewards + incoming_rewards <= Self::pot(),
 				Error::<T>::BatchBeyondFundPot
 			);
 
+			log::info!("********* pot has enough funds");
+
 			for (relay_account, native_account, reward) in &rewards {
+
+
+				log::info!("***************  trying to get accounts ******************");
+				log::info!("*************** relay_account is {:?}", relay_account);
+				log::info!("*************** native_account is {:?}", native_account);
+				log::info!("***************  returned accounted ******************");
+
+				log::info!("*************** reward is {:?}", reward);
 				if ClaimedRelayChainIds::<T>::get(&relay_account).is_some()
 					|| UnassociatedContributions::<T>::get(&relay_account).is_some()
 				{
+					log::info!("********* found relay account *********");
+
 					// Dont fail as this is supposed to be called with batch calls and we
 					// dont want to stall the rest of the contributions
 					Self::deposit_event(Event::InitializedAlreadyInitializedAccount(
@@ -493,9 +449,15 @@ pub mod pallet {
 						*reward,
 					));
 					continue;
+				} else {
+					log::info!("********* cant find relay account *********");
 				}
-
+			
+				log::info!("*************** reward being compared is {:?}",reward);
+				log::info!("*************** min reward being compared is {:?}",T::MinimumReward::get() );
 				if *reward < T::MinimumReward::get() {
+					log::info!("********* reward is less than the min reward *********");
+
 					// Don't fail as this is supposed to be called with batch calls and we
 					// dont want to stall the rest of the contributions
 					Self::deposit_event(Event::InitializedAccountWithNotEnoughContribution(
@@ -504,10 +466,17 @@ pub mod pallet {
 						*reward,
 					));
 					continue;
+				} else {
+					log::info!("********* reward is more than the min reward *********");
+
 				}
+
+
 
 				// If we have a native_account, we make the payment
 				let initial_payment = if let Some(native_account) = native_account {
+					log::info!("********* we have a native account *********");
+
 					let first_payment = T::InitializationPayment::get() * (*reward);
 					T::RewardCurrency::transfer(
 						&PALLET_ID.into_account(),
@@ -521,8 +490,15 @@ pub mod pallet {
 					));
 					first_payment
 				} else {
+					log::info!("********* we do not have a native account *********");
+
 					0u32.into()
 				};
+
+				log::info!("******************** trying to create the reward info");
+				log::info!("******************** total_reward is {:?}",*reward);
+				log::info!("******************** claimed_reward is {:?}",initial_payment);
+				log::info!("******************** contributed_relay_addresses is {:?}",vec![relay_account.clone()]);
 
 				// Calculate the reward info to store after the initial payment has been made.
 				let mut reward_info = RewardInfo {
@@ -535,9 +511,15 @@ pub mod pallet {
 				total_contributors += 1;
 
 				if let Some(native_account) = native_account {
+					log::info!("********* native account again is {:?} *********",native_account);
+					log::info!("********* Some(native_account) is equal to native account *********");
+
 					if let Some(mut inserted_reward_info) =
 						AccountsPayable::<T>::get(native_account)
 					{
+
+						log::info!("********* inserting reward_info *********");
+
 						inserted_reward_info
 							.contributed_relay_addresses
 							.append(&mut reward_info.contributed_relay_addresses);
@@ -554,19 +536,98 @@ pub mod pallet {
 							},
 						);
 					} else {
+
+						log::info!("********* first reward association *********");
+
 						// First reward association
 						AccountsPayable::<T>::insert(native_account, reward_info);
 					}
+					log::info!("********* inserting claimed relay chain account *********");
+
 					ClaimedRelayChainIds::<T>::insert(relay_account, ());
 				} else {
+					log::info!("********* inserting unassociated contribution to relay chain *********");
+
 					UnassociatedContributions::<T>::insert(relay_account, reward_info);
 				}
 			}
+
+			log::info!("********* putting initialised reward  *********");
+
 			InitializedRewardAmount::<T>::put(current_initialized_rewards);
+			log::info!("********* putting total contributers  *********");
+
 			TotalContributors::<T>::put(total_contributors);
 
 			Ok(Default::default())
 		}
+
+
+		/// This extrinsic completes the initialization if some checks are fullfiled. These checks are:
+		///  -The reward contribution money matches the crowdloan pot
+		///  -The end vesting block is higher than the init vesting block
+		///  -The initialization has not complete yet
+		#[pallet::weight(T::WeightInfo::complete_initialization())]
+		pub fn complete_initialization(
+			origin: OriginFor<T>,
+			lease_ending_block: T::VestingBlockNumber,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			log::info!("********* attempt to start initialisation");
+
+			let initialized = <Initialized<T>>::get();
+			log::info!("********* initialised value is {:?}",initialized);
+
+			// This ensures there was no prior initialization
+			ensure!(
+				initialized == false,
+				Error::<T>::RewardVecAlreadyInitialized
+			);
+
+
+			log::info!("********* leasing ending block is {:?}",lease_ending_block);
+			log::info!("********* init vesting block is {:?}",InitVestingBlock::<T>::get());
+
+			// This ensures the end vesting block (when all funds are fully vested)
+			// is bigger than the init vesting block
+			ensure!(
+				lease_ending_block > InitVestingBlock::<T>::get(),
+				Error::<T>::VestingPeriodNonValid
+			);
+			log::info!("********* current_initialized_rewards is {:?}", InitializedRewardAmount::<T>::get());
+			let current_initialized_rewards = InitializedRewardAmount::<T>::get();
+			log::info!("********* reward_difference is {:?}",  Self::pot().saturating_sub(current_initialized_rewards));
+			let total_contributers = TotalContributors::<T>::get();
+			log::info!("********* total_contributers is {:?}",  total_contributers);
+
+			let reward_difference = Self::pot().saturating_sub(current_initialized_rewards);
+
+			// // Ensure the difference is not bigger than the total number of contributors
+			// ensure!(
+			// 	reward_difference < TotalContributors::<T>::get().into(),
+			// 	Error::<T>::RewardsDoNotMatchFund
+			// );
+
+			log::info!("********* attempt to withdraw imbalance *************");
+
+
+			// Burn the difference
+			let imbalance = T::RewardCurrency::withdraw(
+				&PALLET_ID.into_account(),
+				reward_difference,
+				WithdrawReasons::TRANSFER,
+				AllowDeath,
+			)
+			.expect("Shouldnt fail, as the fund should be enough to burn and nothing is locked");
+			drop(imbalance);
+
+			EndVestingBlock::<T>::put(lease_ending_block);
+
+			<Initialized<T>>::put(true);
+
+			Ok(Default::default())
+		}
+
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -755,4 +816,21 @@ pub mod pallet {
 			BalanceOf<T>,
 		),
 	}
+}
+
+
+pub type BalanceOf<T> = <<T as Config>::RewardCurrency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
+
+/// Stores info about the rewards owed as well as how much has been vested so far.
+/// For a primer on this kind of design, see the recipe on compounding interest
+/// https://substrate.dev/recipes/fixed-point.html#continuously-compounding
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Default, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RewardInfo<T: Config> {
+	pub total_reward: BalanceOf<T>,
+	pub claimed_reward: BalanceOf<T>,
+	pub contributed_relay_addresses: Vec<T::RelayChainAccountId>,
 }

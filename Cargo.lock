@@ -1755,11 +1755,14 @@ dependencies = [
  "pallet-collective",
  "pallet-crowdloan-claim",
  "pallet-crowdloan-reward",
+ "pallet-crowdloan-rewards",
  "pallet-randomness-collective-flip",
+ "pallet-scheduler",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
  "pallet-vesting",
  "pallet-xcm",
  "parachain-info",
@@ -5104,6 +5107,31 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-crowdloan-rewards"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-test-relay-sproof-builder",
+ "ed25519-dalek",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
