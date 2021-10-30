@@ -78,8 +78,6 @@ pallet-xcm = { git = 'https://github.com/paritytech/polkadot', branch = 'master'
 # Local Dependencies
 kylin-oracle = { package = 'kylin-oracle', path = '../../pallets/kylin-oracle', default-features = false }
 runtime-common = { path = "../common", default-features = false }
-pallet-crowdloan-claim = { path = "../../pallets/crowdloan-claim", default-features = false }
-pallet-crowdloan-reward = { path = "../../pallets/crowdloan-reward", default-features = false }
 pallet-crowdloan-rewards = { path = "../../pallets/crowdloan-rewards", default-features = false }
 
 
@@ -145,8 +143,6 @@ std = [
 	'cumulus-pallet-xcmp-queue/std',
 	'cumulus-primitives-utility/std',
 	'kylin-oracle/std',
-	'pallet-crowdloan-claim/std',
-	'pallet-crowdloan-reward/std',
 	'pallet-crowdloan-rewards/std',
 ]
 

@@ -487,43 +487,6 @@ impl pallet_vesting::Config for Runtime {
 }
 
 
-
-
-// type CouncilCollective = pallet_collective::Instance1;
-// Parameterize crowdloan reward pallet configuration
-parameter_types! {
-	pub const CrowdloanRewardPalletId: PalletId = PalletId(*b"cc/rewrd");
-}
-
-// Implement crowdloan reward pallet's configuration trait for the runtime
-impl pallet_crowdloan_reward::Config for Runtime {
-	type Event = Event;
-	type PalletId = CrowdloanRewardPalletId;
-	type AdminOrigin = AdminOrigin;
-	type WeightInfo = pallet_crowdloan_reward::weights::SubstrateWeight<Self>;
-}
-
-// Parameterize crowdloan claim pallet
-parameter_types! {
-	pub const CrowdloanClaimPalletId: PalletId = PalletId(*b"cc/claim");
-	pub const ClaimTransactionPriority: TransactionPriority = TransactionPriority::max_value();
-	pub const ClaimTransactionLongevity: u32 = 64;
-	pub const MaxProofLength: u32 = 30;
-}
-
-// Implement crowdloan claim pallet configuration trait for the mock runtime
-impl pallet_crowdloan_claim::Config for Runtime {
-	type Event = Event;
-	type PalletId = CrowdloanClaimPalletId;
-	type WeightInfo = pallet_crowdloan_claim::weights::SubstrateWeight<Self>;
-	type AdminOrigin = AdminOrigin;
-	type RelayChainAccountId = AccountId;
-	type MaxProofLength = MaxProofLength;
-	type ClaimTransactionPriority = ClaimTransactionPriority;
-	type ClaimTransactionLongevity = ClaimTransactionLongevity;
-	type RewardMechanism = CrowdloanReward;
-}
-
 parameter_types! {
 	pub const MinimumReward: Balance = 0;
 	pub const Initialized: bool = false;
@@ -703,10 +666,7 @@ construct_runtime! {
 
 		// Kylin Pallets
 		KylinOraclePallet: kylin_oracle::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 54,
-		CrowdloanClaim: pallet_crowdloan_claim::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 55,
-		CrowdloanReward: pallet_crowdloan_reward::{Pallet, Call, Storage, Event<T>} = 56,
-		CrowdloanRewards: pallet_crowdloan_rewards::{Pallet, Call, Storage, Config<T>, Event<T>} = 57,
-
+		CrowdloanRewards: pallet_crowdloan_rewards::{Pallet, Call, Storage, Config<T>, Event<T>} = 55,
 
 	}
 }
