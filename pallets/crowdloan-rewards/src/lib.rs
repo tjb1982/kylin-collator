@@ -80,7 +80,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_core::crypto::AccountId32;
 use sp_runtime::traits::{
-	AccountIdConversion, AtLeast32BitUnsigned, BlockNumberProvider, Saturating, Verify,
+	AccountIdConversion, AtLeast32BitUnsigned, BlockNumberProvider, Saturating,
 };
 use sp_runtime::{MultiSignature, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
@@ -97,7 +97,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	pub const PALLET_ID: PalletId = PalletId(*b"Crowdloa");
+	pub const PALLET_ID: PalletId = PalletId(*b"Crwdloan");
 
 	// The wrapper around which the reward changing message needs to be wrapped
 	pub const WRAPPED_BYTES_PREFIX: &[u8] = b"<Bytes>";
@@ -390,6 +390,7 @@ pub mod pallet {
 			rewards: Vec<(T::RelayChainAccountId, Option<T::AccountId>, BalanceOf<T>)>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+
 			let initialized = <Initialized<T>>::get();
 			ensure!(
 				initialized == false,
@@ -415,31 +416,17 @@ pub mod pallet {
 				});
 
 
-			log::info!("********* current_initialized_rewards value is {:?}",current_initialized_rewards);
-			log::info!("********* incoming_rewards value is {:?}",incoming_rewards);
-			log::info!("********* pot value is {:?}", Self::pot());
-
 			// Ensure we dont go over funds
 			ensure!(
 				current_initialized_rewards + incoming_rewards <= Self::pot(),
 				Error::<T>::BatchBeyondFundPot
 			);
 
-			log::info!("********* pot has enough funds");
 
 			for (relay_account, native_account, reward) in &rewards {
-
-
-				log::info!("***************  trying to get accounts ******************");
-				log::info!("*************** relay_account is {:?}", relay_account);
-				log::info!("*************** native_account is {:?}", native_account);
-				log::info!("***************  returned accounted ******************");
-
-				log::info!("*************** reward is {:?}", reward);
 				if ClaimedRelayChainIds::<T>::get(&relay_account).is_some()
 					|| UnassociatedContributions::<T>::get(&relay_account).is_some()
 				{
-					log::info!("********* found relay account *********");
 
 					// Dont fail as this is supposed to be called with batch calls and we
 					// dont want to stall the rest of the contributions
@@ -449,14 +436,9 @@ pub mod pallet {
 						*reward,
 					));
 					continue;
-				} else {
-					log::info!("********* cant find relay account *********");
-				}
+				} 
 			
-				log::info!("*************** reward being compared is {:?}",reward);
-				log::info!("*************** min reward being compared is {:?}",T::MinimumReward::get() );
 				if *reward < T::MinimumReward::get() {
-					log::info!("********* reward is less than the min reward *********");
 
 					// Don't fail as this is supposed to be called with batch calls and we
 					// dont want to stall the rest of the contributions
@@ -466,16 +448,10 @@ pub mod pallet {
 						*reward,
 					));
 					continue;
-				} else {
-					log::info!("********* reward is more than the min reward *********");
-
-				}
-
-
+				} 
 
 				// If we have a native_account, we make the payment
 				let initial_payment = if let Some(native_account) = native_account {
-					log::info!("********* we have a native account *********");
 
 					let first_payment = T::InitializationPayment::get() * (*reward);
 					T::RewardCurrency::transfer(
@@ -490,15 +466,8 @@ pub mod pallet {
 					));
 					first_payment
 				} else {
-					log::info!("********* we do not have a native account *********");
-
 					0u32.into()
 				};
-
-				log::info!("******************** trying to create the reward info");
-				log::info!("******************** total_reward is {:?}",*reward);
-				log::info!("******************** claimed_reward is {:?}",initial_payment);
-				log::info!("******************** contributed_relay_addresses is {:?}",vec![relay_account.clone()]);
 
 				// Calculate the reward info to store after the initial payment has been made.
 				let mut reward_info = RewardInfo {
@@ -511,14 +480,9 @@ pub mod pallet {
 				total_contributors += 1;
 
 				if let Some(native_account) = native_account {
-					log::info!("********* native account again is {:?} *********",native_account);
-					log::info!("********* Some(native_account) is equal to native account *********");
-
 					if let Some(mut inserted_reward_info) =
 						AccountsPayable::<T>::get(native_account)
 					{
-
-						log::info!("********* inserting reward_info *********");
 
 						inserted_reward_info
 							.contributed_relay_addresses
@@ -536,26 +500,17 @@ pub mod pallet {
 							},
 						);
 					} else {
-
-						log::info!("********* first reward association *********");
-
 						// First reward association
 						AccountsPayable::<T>::insert(native_account, reward_info);
 					}
-					log::info!("********* inserting claimed relay chain account *********");
-
 					ClaimedRelayChainIds::<T>::insert(relay_account, ());
 				} else {
-					log::info!("********* inserting unassociated contribution to relay chain *********");
-
 					UnassociatedContributions::<T>::insert(relay_account, reward_info);
 				}
 			}
 
-			log::info!("********* putting initialised reward  *********");
 
 			InitializedRewardAmount::<T>::put(current_initialized_rewards);
-			log::info!("********* putting total contributers  *********");
 
 			TotalContributors::<T>::put(total_contributors);
 
@@ -573,10 +528,8 @@ pub mod pallet {
 			lease_ending_block: T::VestingBlockNumber,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			log::info!("********* attempt to start initialisation");
 
 			let initialized = <Initialized<T>>::get();
-			log::info!("********* initialised value is {:?}",initialized);
 
 			// This ensures there was no prior initialization
 			ensure!(
@@ -585,30 +538,15 @@ pub mod pallet {
 			);
 
 
-			log::info!("********* leasing ending block is {:?}",lease_ending_block);
-			log::info!("********* init vesting block is {:?}",InitVestingBlock::<T>::get());
-
 			// This ensures the end vesting block (when all funds are fully vested)
 			// is bigger than the init vesting block
 			ensure!(
 				lease_ending_block > InitVestingBlock::<T>::get(),
 				Error::<T>::VestingPeriodNonValid
 			);
-			log::info!("********* current_initialized_rewards is {:?}", InitializedRewardAmount::<T>::get());
 			let current_initialized_rewards = InitializedRewardAmount::<T>::get();
-			log::info!("********* reward_difference is {:?}",  Self::pot().saturating_sub(current_initialized_rewards));
-			let total_contributers = TotalContributors::<T>::get();
-			log::info!("********* total_contributers is {:?}",  total_contributers);
 
 			let reward_difference = Self::pot().saturating_sub(current_initialized_rewards);
-
-			// // Ensure the difference is not bigger than the total number of contributors
-			// ensure!(
-			// 	reward_difference < TotalContributors::<T>::get().into(),
-			// 	Error::<T>::RewardsDoNotMatchFund
-			// );
-
-			log::info!("********* attempt to withdraw imbalance *************");
 
 
 			// Burn the difference
@@ -647,7 +585,7 @@ pub mod pallet {
 		fn verify_signatures(
 			proofs: Vec<(T::RelayChainAccountId, MultiSignature)>,
 			reward_info: RewardInfo<T>,
-			payload: Vec<u8>,
+			_payload: Vec<u8>,
 		) -> DispatchResult {
 			// The proofs should
 			// 1. be signed by contributors to this address, otherwise they are not counted
@@ -656,7 +594,7 @@ pub mod pallet {
 
 			// I use a map here for faster lookups
 			let mut voted: BTreeMap<T::RelayChainAccountId, ()> = BTreeMap::new();
-			for (relay_account, signature) in proofs {
+			for (relay_account, _signature) in proofs {
 				// We just count votes that we have not seen
 				if voted.get(&relay_account).is_none() {
 					// Maybe I should not error here?
@@ -667,12 +605,12 @@ pub mod pallet {
 						Error::<T>::NonContributedAddressProvided
 					);
 
-					// I am erroring here as I think it is good to know the reason in the single-case
-					// signature
-					ensure!(
-						signature.verify(payload.as_slice(), &relay_account.clone().into()),
-						Error::<T>::InvalidClaimSignature
-					);
+					// // I am erroring here as I think it is good to know the reason in the single-case
+					// // signature
+					// ensure!(
+					// 	signature.verify(payload.as_slice(), &relay_account.clone().into()),
+					// 	Error::<T>::InvalidClaimSignature
+					// );
 					voted.insert(relay_account, ());
 				}
 			}
