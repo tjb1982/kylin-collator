@@ -30,7 +30,7 @@ use sp_runtime::{
 	generic::Era,
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify, Extrinsic as ExtrinsicT, ConvertInto},
-	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
+	transaction_validity::{ TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,Perbill,
 };
 
